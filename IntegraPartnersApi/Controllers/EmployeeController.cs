@@ -13,96 +13,47 @@ namespace IntegraPartnersApi.Controllers
     [ApiKey]
     public class EmployeeController : ControllerBase
     {
-        EmployeeDataAccess eda = new EmployeeDataAccess();
+        private readonly IEmployeeRepository _repo;
+
+        public EmployeeController(IEmployeeRepository repo) => _repo = repo;
+
         // GET: api/<EmployeeController>
         [HttpGet]
-        public IActionResult Get()
-        {
-            try
-            {
-                //get all employees
-                return Ok(eda.GetEmployees());
-            }
-            catch(Exception ex)
-            {
-                //TODO: write exception to error log in DB or EventViewer and send generic error message to client
-                return BadRequest(ex);
-            }
-        }
+        public async Task<ActionResult<IEnumerable<Employee>>> GetAll() =>
+            Ok(await _repo.GetAllAsync());
 
         // GET api/<EmployeeController>/5
-        [HttpGet("{id}")]
-        public IActionResult Get(int id)
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<Employee>> GetById(int id)
         {
-            try
-            {
-                //get one employee based on Id
-                var employees = eda.GetEmployees();
-                return Ok(employees.FirstOrDefault(e => e.Id == id));
-            }
-            catch (Exception ex)
-            {
-                //TODO: write exception to error log in DB or EventViewer and send generic error message to client
-                return BadRequest(ex);
-            }
+            var employee = await _repo.GetByIdAsync(id);
+            return employee is null ? NotFound() : Ok(employee);
         }
 
         // POST api/<EmployeeController>
         [HttpPost]
-        public IActionResult Post([FromBody] Employee value)
+        public async Task<ActionResult<Employee>> Create(Employee employee)
         {
-            try
-            {
-                if (value.Id == 0)
-                {
-                    var employees = eda.GetEmployees();
+            if (await _repo.GetByEmailAsync(employee.Email!) is not null)
+                return Conflict(new { message = "Email already exists" });
 
-                    //check if email exists when adding new employees so that we don't add duplicate employees
-                    var emailExists = employees.FirstOrDefault(e => e.Email == value.Email);
-                    if(emailExists == null)
-                    {
-                        eda.AddEmployee(value);
-                        return Ok(new { result = "Employee Added", employees = eda.GetEmployees() });
-                    }
-                    else
-                    {
-                        return BadRequest(new { result = "Email already exists", employees = eda.GetEmployees() });
-                    }
-                }
-                else
-                {
-                    //update employee
-                    eda.UpdateEmployee(value);
-                    return Ok(new { result = "Employee Updated", employees = eda.GetEmployees() });
-                }
-            }
-            catch (Exception ex)
-            {
-                //TODO: write exception to error log in DB or EventViewer and send generic error message to client
-                return BadRequest(ex);
-            }
+            var created = await _repo.AddAsync(employee);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
 
-        // DELETE api/<EmployeeController>/5
-        [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, Employee employee)
         {
-            try
-            {
-                //delete employee from list
-                var employees = eda.GetEmployees();
-                var employee = employees.FirstOrDefault(e => e.Id == id);
-                if (employee != null)
-                {
-                    eda.DeleteEmployee(employee);
-                }
-                return Ok(new { result = "Employee Deleted", employees = eda.GetEmployees() });
-            }
-            catch (Exception ex)
-            {
-                //TODO: write exception to error log in DB or EventViewer and send generic error message to client
-                return BadRequest(ex);
-            }
+            employee.Id = id;
+            var sameEmail = await _repo.GetByEmailAsync(employee.Email!);
+            if (sameEmail is not null && sameEmail.Id != id)
+                return Conflict(new { message = "Email already exists" });
+
+            return await _repo.UpdateAsync(employee) ? NoContent() : NotFound();
         }
+
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id) =>
+            await _repo.DeleteAsync(id) ? NoContent() : NotFound();
     }
 }

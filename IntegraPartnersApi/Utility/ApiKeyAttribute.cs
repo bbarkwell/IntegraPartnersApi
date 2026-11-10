@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Configuration;
 
 namespace IntegraPartnersApi.Utility
 {
@@ -9,7 +10,13 @@ namespace IntegraPartnersApi.Utility
 
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
-            var configuration = context.HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+            //var configuration = context.HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+
+            var builder = WebApplication.CreateBuilder();
+            // or Host.CreateDefaultBuilder(args) for console apps
+
+            // Retrieve the secret seamlessly
+            string? apiKey = builder.Configuration["ApiKey"];
 
             if (!context.HttpContext.Request.Headers.TryGetValue(APIKEY_HEADER_NAME, out var extractedApiKey))
             {
@@ -17,13 +24,18 @@ namespace IntegraPartnersApi.Utility
                 return;
             }
 
-            // Check against ApiClients configuration mapping
-            var apiKey = configuration.GetSection("ApiKey");
             bool isValidApiKey = false;
-
-            if (apiKey.Value.Equals(extractedApiKey.ToString(), StringComparison.Ordinal))
+            if (apiKey == null)
             {
-                isValidApiKey = true;
+                context.Result = new UnauthorizedResult();
+                return;
+            }
+            else
+            {
+                if (apiKey.Equals(extractedApiKey.ToString(), StringComparison.Ordinal))
+                {
+                    isValidApiKey = true;
+                }
             }
             
             if (!isValidApiKey)
