@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Configuration;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace IntegraPartnersApi.Utility
 {
@@ -10,35 +12,14 @@ namespace IntegraPartnersApi.Utility
 
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
-            //var configuration = context.HttpContext.RequestServices.GetService(typeof(IConfiguration)) as IConfiguration;
+            var config = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>();
 
-            var builder = WebApplication.CreateBuilder();
-            // or Host.CreateDefaultBuilder(args) for console apps
+            // Retrieve the secret apiKey
+            var expected = config["ApiKey"];
 
-            // Retrieve the secret seamlessly
-            string? apiKey = builder.Configuration["ApiKey"];
-
-            if (!context.HttpContext.Request.Headers.TryGetValue(APIKEY_HEADER_NAME, out var extractedApiKey))
-            {
-                context.Result = new UnauthorizedResult();
-                return;
-            }
-
-            bool isValidApiKey = false;
-            if (apiKey == null)
-            {
-                context.Result = new UnauthorizedResult();
-                return;
-            }
-            else
-            {
-                if (apiKey.Equals(extractedApiKey.ToString(), StringComparison.Ordinal))
-                {
-                    isValidApiKey = true;
-                }
-            }
-            
-            if (!isValidApiKey)
+            if (string.IsNullOrEmpty(expected) ||
+                !context.HttpContext.Request.Headers.TryGetValue(APIKEY_HEADER_NAME, out var provided) ||
+                !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(provided.ToString())))
             {
                 context.Result = new UnauthorizedResult();
                 return;

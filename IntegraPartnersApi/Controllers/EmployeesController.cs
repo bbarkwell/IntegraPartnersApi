@@ -2,20 +2,17 @@
 using IntegraPartnersApi.Models;
 using IntegraPartnersApi.Utility;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace IntegraPartnersApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     [ApiKey]
-    public class EmployeeController : ControllerBase
+    public class EmployeesController : ControllerBase
     {
         private readonly IEmployeeRepository _repo;
 
-        public EmployeeController(IEmployeeRepository repo) => _repo = repo;
+        public EmployeesController(IEmployeeRepository repo) => _repo = repo;
 
         // GET: api/<EmployeeController>
         [HttpGet]
